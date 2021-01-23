@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 9eef004f13a729a43a971b31c925742a
+guid: c50afe9806b553a458ad0614b302e1b1
 TrueTypeFontImporter:
   externalObjects: {}
   serializedVersion: 4
@@ -8,9 +8,9 @@ TrueTypeFontImporter:
   characterSpacing: 0
   characterPadding: 1
   includeFontData: 1
-  fontName: Seven Swordsmen BB
+  fontName: Karamelia DEMO
   fontNames:
-  - Seven Swordsmen BB
+  - Karamelia DEMO
   fallbackFontReferences: []
   customCharacters: 
   fontRenderingMode: 0

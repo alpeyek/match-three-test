@@ -1,12 +1,11 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace MatchThree
 {
     [System.Serializable]
     public class TileInfo
     {
+        public string Id;
         public Sprite Sprite;
         public Color Color;
     }
@@ -25,5 +24,10 @@ namespace MatchThree
         public float TileMoveSpeed => _tileMoveSpeed;
         public int TileFieldWidth => _tileFieldWidth;
         public int TileFieldHeight => _tileFieldHeight;
+
+        public TileInfo GetRandomTileInfo()
+        {
+            return _tileInfos[Random.Range(0, _tileInfos.Length)];
+        }
     }
 }

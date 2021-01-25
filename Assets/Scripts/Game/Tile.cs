@@ -1,5 +1,6 @@
 ﻿using System;
 using DG.Tweening;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,9 +11,7 @@ namespace MatchThree
         [SerializeField] private Image _image;
         [SerializeField] private Button _button;
         [SerializeField] private GameObject _selection;
-        
-        [HideInInspector] public int Row;
-        [HideInInspector] public int Col;
+        [SerializeField] private TextMeshProUGUI _text;
 
         private event Action<Tile> _onClicked = delegate { };
 
@@ -20,6 +19,8 @@ namespace MatchThree
         private bool _isSelected;
 
         public int TypeId { get; private set; }
+        public int Row { get; private set; }
+        public int Col { get; private set; }
 
         public RectTransform Rect => _rectTransform;
 
@@ -32,7 +33,6 @@ namespace MatchThree
             int row, int col, Action<Tile> clickCallback = null)
         {
             _image.sprite = tileInfo.Sprite;
-            _image.color = tileInfo.Color;
 
             Rect.anchoredPosition = position;
             Rect.sizeDelta = new Vector2(size, size);
@@ -40,8 +40,7 @@ namespace MatchThree
             _isSelected = false;
             _onClicked = clickCallback;
 
-            Row = row;
-            Col = col;
+            SetRowCol(row, col);
 
             TypeId = tileInfo.Id;
             
@@ -51,6 +50,7 @@ namespace MatchThree
 
         private void OnClick()
         {
+            Debug.Log($"{Row}, {Col}");
             SetSelected(!_isSelected);
             
             _onClicked?.Invoke(this);
@@ -62,10 +62,21 @@ namespace MatchThree
             _selection.SetActive(selected);
         }
 
-        public Tweener Move(Tile otherTile)
+        public void SetRowCol(int row, int col)
         {
-            return Rect.DOAnchorPos(otherTile.Rect.anchoredPosition, 0.5f)
-                .SetEase(Ease.InOutSine);
+            Row = row;
+            Col = col;
+            _text.text = $"{Row}, {Col}";
+        }
+
+        public Tweener MoveTo(Tile otherTile)
+        {
+            return MoveTo(otherTile.Rect.anchoredPosition);
+        }
+        
+        public Tweener MoveTo(Vector2 pos)
+        {
+            return Rect.DOAnchorPos(pos, 0.5f).SetEase(Ease.InOutSine);
         }
 
         public void Match()

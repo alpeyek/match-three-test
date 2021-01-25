@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using DG.Tweening;
-using MathThree;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -68,28 +67,36 @@ namespace MatchThree
             var sameTypeTilesCol = 1;
             
             for (int i = col - 1; i >= 0; i--)
+            {
                 if (_tiles[i][row] != null &&_tiles[i][row].TypeId == typeId)
                     sameTypeTilesRow++;
                 else
                     break;
+            }
             
             for (int i = col + 1; i < _tiles.Count; i++)
+            {
                 if (_tiles[i][row] != null && _tiles[i][row].TypeId == typeId)
                     sameTypeTilesRow++;
                 else
                     break;
+            }
             
             for (int i = row - 1; i >= 0; i--)
+            {
                 if (_tiles[col][i] != null && _tiles[col][i].TypeId == typeId)
                     sameTypeTilesCol++;
                 else
                     break;
+            }
             
             for (int i = row + 1; i < _tiles[col].Count; i++)
+            {
                 if (_tiles[col][i] != null && _tiles[col][i].TypeId == typeId)
                     sameTypeTilesCol++;
                 else
                     break;
+            }
             
             return sameTypeTilesRow < GameController.Instance.Config.TileMatchCount &&
                    sameTypeTilesCol < GameController.Instance.Config.TileMatchCount;
@@ -112,12 +119,54 @@ namespace MatchThree
             return false;
         }
 
-        private bool IsMatch(Tile tile)
+        private bool CheckMatch(Tile tile)
         {
-            var matchedHorizontal = IsHorizontalMatch(tile, out _);
-            var matchedVertical = IsVerticalMatch(tile, out _);
+            if (tile == null || !tile.gameObject.activeSelf)
+                return false;
+            
+            var matchedHorizontal = IsHorizontalMatch(tile, out var matchedTilesHor);
+            var matchedVertical = IsVerticalMatch(tile, out var matchedTilesVert);
+
+            if (matchedHorizontal)
+            {
+                var tilesShiftedCount = 0;
+                foreach (var matchedTile in matchedTilesHor)
+                {
+                    matchedTile.Match();
+                    
+                    var shiftedTiles = new List<Tile>();
+                    ShiftTileColumn(matchedTile.Col, matchedTile.Row, 1, in shiftedTiles,
+                        () =>
+                        {
+                            if (++tilesShiftedCount >= matchedTilesHor.Count)
+                            {
+                                CheckMatchForTiles(shiftedTiles);
+                            }
+                        });
+                }
+                    
+            }
+            
+            if (matchedVertical)
+            {
+                foreach (var matchedTile in matchedTilesVert)
+                    matchedTile.Match();
+
+                var firstTile = matchedTilesVert.OrderBy(t => t.Rect.anchoredPosition.y).Last();
+                var shiftedTiles = new List<Tile>();
+                ShiftTileColumn(firstTile.Col, firstTile.Row, matchedTilesVert.Count, in shiftedTiles,
+                    () => CheckMatchForTiles(shiftedTiles));
+            }
 
             return matchedHorizontal || matchedVertical;
+        }
+
+        private void CheckMatchForTiles(List<Tile> tiles)
+        {
+            foreach (var tile in tiles)
+            {
+                CheckMatch(tile);
+            }
         }
 
         private bool IsHorizontalMatch(Tile tile, out List<Tile> matchedTiles)
@@ -126,16 +175,20 @@ namespace MatchThree
             var row = tile.Row;
 
             for (int i = tile.Col + 1; i < _tiles.Count; i++)
+            {
                 if (_tiles[i][row].TypeId == tile.TypeId)
                     matchedTiles.Add(_tiles[i][row]);
                 else
                     break;
+            }
             
             for (int i = tile.Col - 1; i >= 0; i--)
+            {
                 if (_tiles[i][row].TypeId == tile.TypeId)
                     matchedTiles.Add(_tiles[i][row]);
                 else
                     break;
+            }
 
             return matchedTiles.Count >= GameController.Instance.Config.TileMatchCount;
         }
@@ -146,26 +199,46 @@ namespace MatchThree
             var col = tile.Col;
 
             for (int i = tile.Row + 1; i < _tiles[col].Count; i++)
+            {
                 if (_tiles[col][i].TypeId == tile.TypeId)
                     matchedTiles.Add(_tiles[col][i]);
                 else
                     break;
+            }
             
             for (int i = tile.Row - 1; i >= 0; i--)
+            {
                 if (_tiles[col][i].TypeId == tile.TypeId)
                     matchedTiles.Add(_tiles[col][i]);
                 else
                     break;
+            }
 
             return matchedTiles.Count >= GameController.Instance.Config.TileMatchCount;
+        }
+
+        private void SetTile(Tile tile, int row, int col)
+        {
+            _tiles[col][row] = tile;
+        }
+        
+        private void SwapTiles(Tile tile1, Tile tile2)
+        {
+            Tile tTile = tile1;
+            int tRow = tTile.Row;
+            int tCol = tTile.Col;
+            
+            SetTile(tile2, tile1.Row, tile1.Col);
+            SetTile(tTile, tile2.Row, tile2.Col);
+
+            tile1.SetRowCol(tile2.Row, tile2.Col);
+            tile2.SetRowCol(tRow, tCol);
         }
 
         private void OnTileClick(Tile tile)
         {
             if (tile == _selectedTile)
-            {
                 return;
-            }
 
             if (_selectedTile == null)
             {
@@ -177,30 +250,21 @@ namespace MatchThree
             if (AreTilesAdjacent(_selectedTile, tile))
             {
                 Sequence sequence = DOTween.Sequence();
-                sequence.Append(_selectedTile.Move(tile));
-                sequence.Join(tile.Move(_selectedTile));
+                sequence.Append(_selectedTile.MoveTo(tile));
+                sequence.Join(tile.MoveTo(_selectedTile));
                 sequence.AppendCallback(() =>
                 {
-                    int tRow = _selectedTile.Row;
-                    int tCol = _selectedTile.Col;
+                    SwapTiles(_selectedTile, tile);
 
-                    _selectedTile.Row = tile.Row;
-                    _selectedTile.Col = tile.Row;
-                    tile.Row = tRow;
-                    tile.Col = tCol;
-
-                    bool match = IsMatch(_selectedTile);
-                    Debug.Log($"Match on {_selectedTile.Row}, {_selectedTile.Col}");
-
-                    match = IsMatch(tile);
-                    Debug.Log($"Match on {tile.Row}, {tile.Col}");
+                    CheckMatch(_selectedTile);
+                    CheckMatch(tile);
+                    
+                    _selectedTile = null;
                 });
                 sequence.Play();
                 
                 _selectedTile.SetSelected(false);
                 tile.SetSelected(false);
-
-                _selectedTile = null;
             }
             else
             {
@@ -208,6 +272,40 @@ namespace MatchThree
                 _selectedTile = tile;
                 _selectedTile.SetSelected(true);
             }
+        }
+
+        private void ShiftTileColumn(int col, int startIndex, int tilesCount, in List<Tile> shiftedTiles, Action callback)
+        {
+            if (startIndex + tilesCount >= _tiles[col].Count)
+                return;
+            
+            var config = GameController.Instance.Config;
+            var sequence = DOTween.Sequence();
+            var moveToPos = Vector2.zero;
+
+            for (int i = 0; i < _tiles[col].Count; i++)
+            {
+                if (_tiles[col][i] != null && _tiles[col][i].gameObject.activeSelf)
+                {
+                    moveToPos = _tiles[col][i].Rect.anchoredPosition - new Vector2(0f, config.TileSize);
+                }
+            }
+
+            for (int i = startIndex + tilesCount, j = 0; i < _tiles[col].Count; i++, j++)
+            {
+                var tile = _tiles[col][i];
+                tile.SetRowCol(startIndex + j, col);
+                _tiles[col][startIndex + j] = tile;
+                
+                sequence.Join(tile.MoveTo(moveToPos));
+                moveToPos.y -= config.TileSize;
+
+                shiftedTiles.Add(tile);
+            }
+            
+            sequence.AppendCallback(() => callback?.Invoke());
+
+            sequence.Play();
         }
     }
 }

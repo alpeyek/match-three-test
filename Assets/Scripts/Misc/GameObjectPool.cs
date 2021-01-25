@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace MathThree
+namespace MatchThree
 {
     public class GameObjectPool : MonoBehaviour
     {
